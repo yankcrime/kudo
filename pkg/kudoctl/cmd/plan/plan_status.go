@@ -2,6 +2,7 @@ package plan
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/xlab/treeprint"
 
@@ -63,13 +64,19 @@ func status(kc *kudo.Client, options *Options, ns string) error {
 	rootDisplay := fmt.Sprintf("%s (Operator-Version: \"%s\" Active-Plan: \"%s\", last updated: \"%s\")", instance.Name, instance.Spec.OperatorVersion.Name, lastPlanStatus.Name, instance.Status.AggregatedStatus.LastUpdated.Format("2006-01-02 15:04:05"))
 	rootBranchName := tree.AddBranch(rootDisplay)
 
-	for name, plan := range ov.Spec.Plans {
+	plans := make([]string, 0, len(ov.Spec.Plans))
+	for k := range ov.Spec.Plans {
+		plans = append(plans, k)
+	}
+	sort.Strings(plans)
+
+	for _, k := range plans {
 		var planDisplay string
-		if name == lastPlanStatus.Name {
+		if k == lastPlanStatus.Name {
 			if lastPlanStatus.LastFinishedRun != nil {
-				planDisplay = fmt.Sprintf("Plan %s (%s strategy) [%s]%s, last finished %s", name, plan.Strategy, lastPlanStatus.Status, printMessageIfAvailable(lastPlanStatus.Message), lastPlanStatus.LastFinishedRun.Format("2006-01-02 15:04:05"))
+				planDisplay = fmt.Sprintf("Plan %s (%s strategy) [%s]%s, last finished %s", k, ov.Spec.Plans[k].Strategy, lastPlanStatus.Status, printMessageIfAvailable(lastPlanStatus.Message), lastPlanStatus.LastFinishedRun.Format("2006-01-02 15:04:05"))
 			} else {
-				planDisplay = fmt.Sprintf("Plan %s (%s strategy) [%s]%s", name, plan.Strategy, lastPlanStatus.Status, printMessageIfAvailable(lastPlanStatus.Message))
+				planDisplay = fmt.Sprintf("Plan %s (%s strategy) [%s]%s", k, ov.Spec.Plans[k].Strategy, lastPlanStatus.Status, printMessageIfAvailable(lastPlanStatus.Message))
 			}
 			planBranchName := rootBranchName.AddBranch(planDisplay)
 			for _, phase := range lastPlanStatus.Phases {
@@ -81,9 +88,9 @@ func status(kc *kudo.Client, options *Options, ns string) error {
 				}
 			}
 		} else {
-			planDisplay := fmt.Sprintf("Plan %s (%s strategy) [NOT ACTIVE]", name, plan.Strategy)
+			planDisplay := fmt.Sprintf("Plan %s (%s strategy) [NOT ACTIVE]", k, ov.Spec.Plans[k].Strategy)
 			planBranchName := rootBranchName.AddBranch(planDisplay)
-			for _, phase := range plan.Phases {
+			for _, phase := range ov.Spec.Plans[k].Phases {
 				phaseDisplay := fmt.Sprintf("Phase %s (%s strategy) [NOT ACTIVE]", phase.Name, phase.Strategy)
 				phaseBranchName := planBranchName.AddBranch(phaseDisplay)
 				for _, steps := range phase.Steps {
